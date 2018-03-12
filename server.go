@@ -20,8 +20,8 @@ var (
 	READER       *log.Logger
 	WRITER       *log.Logger
 	sSequence    int64 = 0
-	numReaders   int64 = 0
-	numWriters   int64 = 0
+	sNumReaders        = 0
+	sNumWriters        = 0
 )
 
 func init() {
@@ -80,10 +80,10 @@ func handleRequest(conn net.Conn) {
 			fmt.Println("Message Received:", scanner.Text())
 
 			if scanner.Text() == "read" {
-				numReaders++
+				sNumReaders++
 				serveRead(conn)
 			} else if validWriteMessage.Match([]byte(scanner.Text())) {
-				numWriters++
+				sNumWriters++
 				serveWrite(conn, scanner.Text())
 			} else {
 				conn.Write([]byte("Invalid message\n"))
@@ -107,7 +107,7 @@ func serveRead(conn net.Conn) {
 	}
 
 	// log
-	READER.Printf("%d\t%d\t%d\t%s\n", sSequence, globalNumber, numReaders, conn.RemoteAddr().String())
+	READER.Printf("%d\t%d\t%d\t%s\n", sSequence, globalNumber, sNumReaders, conn.RemoteAddr().String())
 }
 
 func serveWrite(conn net.Conn, message string) {
@@ -130,9 +130,9 @@ func increaseSequenceNumber() {
 }
 
 func decreaseNumReader() {
-	numReaders--
+	sNumReaders--
 }
 
 func decreaseNumWriters() {
-	numWriters--
+	sNumWriters--
 }
