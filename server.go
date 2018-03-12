@@ -74,17 +74,19 @@ func handleRequest(conn net.Conn) {
 	for {
 		// get message from client
 		recv := scanner.Scan()
+		fmt.Println("RAW: ", scanner.Text())
+		recv_text := strings.TrimSpace(scanner.Text())
 
-		if !(len(scanner.Text()) == 0) {
+		if !(len(recv_text) == 0) {
 			// print message
-			fmt.Println("Message Received:", scanner.Text())
+			fmt.Println("Message Received:", recv_text)
 
-			if scanner.Text() == "read" {
+			if recv_text == "read" {
 				sNumReaders++
 				serveRead(conn)
-			} else if validWriteMessage.Match([]byte(scanner.Text())) {
+			} else if validWriteMessage.Match([]byte(recv_text)) {
 				sNumWriters++
-				serveWrite(conn, scanner.Text())
+				serveWrite(conn, recv_text)
 			} else {
 				conn.Write([]byte("Invalid message\n"))
 			}

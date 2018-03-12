@@ -3,20 +3,18 @@ package main
 import (
 	"net"
 	"bufio"
-	"os"
 	"fmt"
 	"github.com/go-ini/ini"
 	"encoding/binary"
-	"strings"
 	"strconv"
+	"time"
+	"math/rand"
 )
 
 var (
 	sAddr       string
 	cNumReaders int
 	cNumWriters int
-	READ_MSG    = "read"
-	WRITE_MSG   = "write %d"
 )
 
 func init() {
@@ -44,28 +42,54 @@ func main() {
 
 	// send request to server for connection
 	conn, _ := net.Dial("tcp", sAddr)
+	defer conn.Close()
 
-	// create a reader (takes input)
-	reader := bufio.NewReader(os.Stdin)
+	for i := 0; i < cNumReaders; i++ {
+		go readerClient(i)
+	}
+
+	for i := 0; i < cNumWriters; i++ {
+		go writerClient(0)
+	}
 
 	for {
-		// read message from user (input)
-		fmt.Print("> ")
-		text, _ := reader.ReadString('\n')
+	}
+}
 
-		// write message to connection
-		fmt.Fprintf(conn, text)
+func readerClient(idx int) {
+	conn, _ := net.Dial("tcp", sAddr)
+	defer conn.Close()
 
-		if strings.Contains(text, "read") {
-			var number int64
-			err := binary.Read(conn, binary.BigEndian, &number)
-			if err != nil {
-				fmt.Println(err)
-			}
-			fmt.Println("Message from server", number)
-		} else if strings.Contains(text, "write") {
-			message, _ := bufio.NewReader(conn).ReadString('\n')
-			fmt.Println("Message from server", message)
+	var number int64
+
+	for {
+		// request
+		conn.Write([]byte("read\n"))
+
+		err := binary.Read(conn, binary.BigEndian, &number)
+		if err != nil {
+			fmt.Println(err)
 		}
+		fmt.Println("Reader #", idx, "=> value from server", number)
+
+		// sleep
+		time.Sleep(time.Millisecond * time.Duration(rand.Intn(10000)))
+	}
+}
+
+func writerClient(idx int) {
+	conn, _ := net.Dial("tcp", sAddr)
+	defer conn.Close()
+
+	for {
+		numToWrite := rand.Intn(100)
+		conn.Write([]byte("write " + strconv.Itoa(numToWrite) + "\n"))
+
+		message, _ := bufio.NewReader(conn).ReadString('\n')
+		fmt.Println("Writer #", idx, "writing", numToWrite)
+		fmt.Println("Message from server", message)
+
+		// sleep
+		time.Sleep(time.Millisecond * time.Duration(rand.Intn(10000)))
 	}
 }
