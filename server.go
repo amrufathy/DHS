@@ -80,8 +80,10 @@ func handleRequest(conn net.Conn) {
 			fmt.Println("Message Received:", scanner.Text())
 
 			if scanner.Text() == "read" {
+				numReaders++
 				serveRead(conn)
 			} else if validWriteMessage.Match([]byte(scanner.Text())) {
+				numWriters++
 				serveWrite(conn, scanner.Text())
 			} else {
 				conn.Write([]byte("Invalid message\n"))
