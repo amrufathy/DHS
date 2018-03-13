@@ -12,6 +12,7 @@ import (
 	"math/rand"
 	"log"
 	"os"
+	"sync"
 )
 
 var (
@@ -22,6 +23,7 @@ var (
 	sSequence    int64 = 0
 	sNumReaders        = 0
 	sNumWriters        = 0
+	mutex        sync.Mutex
 )
 
 func init() {
@@ -123,7 +125,9 @@ func serveWrite(conn net.Conn, message string) {
 	WRITER.Printf("%d\t%d\t%d\t%s\n", sSequence, globalNumber, newValue, conn.RemoteAddr().String())
 
 	// write newValue
+	mutex.Lock() // acquire lock
 	globalNumber = newValue
+	mutex.Unlock() // release lock
 	conn.Write([]byte("valid write\n"))
 }
 
