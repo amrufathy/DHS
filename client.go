@@ -7,7 +7,6 @@ import (
 	"github.com/go-ini/ini"
 	"encoding/binary"
 	"strconv"
-	"time"
 	"math/rand"
 )
 
@@ -49,7 +48,7 @@ func main() {
 	}
 
 	for i := 0; i < cNumWriters; i++ {
-		go writerClient(0)
+		go writerClient(i)
 	}
 
 	for {
@@ -71,9 +70,6 @@ func readerClient(idx int) {
 			fmt.Println(err)
 		}
 		fmt.Println("Reader #", idx, "=> value from server", number)
-
-		// sleep
-		time.Sleep(time.Millisecond * time.Duration(rand.Intn(10000)))
 	}
 }
 
@@ -88,8 +84,5 @@ func writerClient(idx int) {
 		message, _ := bufio.NewReader(conn).ReadString('\n')
 		fmt.Println("Writer #", idx, "writing", numToWrite)
 		fmt.Println("Message from server", message)
-
-		// sleep
-		time.Sleep(time.Millisecond * time.Duration(rand.Intn(10000)))
 	}
 }

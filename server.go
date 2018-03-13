@@ -13,6 +13,7 @@ import (
 	"log"
 	"os"
 	"sync"
+	"time"
 )
 
 var (
@@ -38,9 +39,10 @@ func init() {
 	addr = host.String() + ":" + port.String()
 
 	// Initialize logger
-	logfile, _ := os.Create("./server.log")
-	READER = log.New(logfile, "READ:  ", log.Ltime)
-	WRITER = log.New(logfile, "WRITE: ", log.Ltime)
+	rLogfile, _ := os.Create("./r_server.log")
+	wLogfile, _ := os.Create("./w_server.log")
+	READER = log.New(rLogfile, "READ:  ", log.Ltime)
+	WRITER = log.New(wLogfile, "WRITE: ", log.Ltime)
 }
 
 func main() {
@@ -103,6 +105,9 @@ func serveRead(conn net.Conn) {
 	defer decreaseNumReader()
 	defer increaseSequenceNumber()
 
+	// sleep
+	time.Sleep(time.Millisecond * time.Duration(rand.Intn(10000)))
+
 	// reply
 	err := binary.Write(conn, binary.BigEndian, globalNumber)
 	if err != nil {
@@ -116,6 +121,9 @@ func serveRead(conn net.Conn) {
 func serveWrite(conn net.Conn, message string) {
 	defer decreaseNumWriters()
 	defer increaseSequenceNumber()
+
+	// sleep
+	time.Sleep(time.Millisecond * time.Duration(rand.Intn(10000)))
 
 	// parse message
 	newValue, _ := strconv.ParseInt(strings.Fields(message)[1], 10, 64)
