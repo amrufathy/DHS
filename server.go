@@ -76,7 +76,6 @@ func handleRequest(conn net.Conn) {
 	for {
 		// get message from client
 		recv := scanner.Scan()
-		fmt.Println("RAW: ", scanner.Text())
 		recv_text := strings.TrimSpace(scanner.Text())
 
 		if !(len(recv_text) == 0) {
