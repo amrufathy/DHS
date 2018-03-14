@@ -5,12 +5,13 @@ import (
 	"bufio"
 	"fmt"
 	"github.com/go-ini/ini"
-	"encoding/binary"
 	"strconv"
 	"math/rand"
 	"sync"
 	"os"
 	"log"
+	"strings"
+	"time"
 )
 
 var (
@@ -45,11 +46,9 @@ func init() {
 }
 
 func main() {
-	fmt.Println("Requesting a connection from server...")
-
 	// send request to server for connection
-	conn, _ := net.Dial("tcp", sAddr)
-	defer conn.Close()
+	//conn, _ := net.Dial("tcp", sAddr)
+	//defer conn.Close()
 
 	for i := 0; i < cNumReaders; i++ {
 		wg.Add(1)
@@ -72,19 +71,40 @@ func readerClient(idx int) {
 	logFile, _ := os.Create("./logs/readers/reader" + strconv.Itoa(idx) + ".log")
 	logger := log.New(logFile, "", log.Ltime)
 
-	var number int64
+	reader := bufio.NewReader(conn)
+	writer := bufio.NewWriter(conn)
+
+	var (
+		number int64
+		rSeq   int64
+	)
 
 	for i := 0; i < cNumAccess; i++ {
 		// request
-		conn.Write([]byte("read\n"))
+		writer.WriteString("read\n")
+		writer.Flush()
 
-		err := binary.Read(conn, binary.BigEndian, &number)
-		if err != nil {
-			fmt.Println(err)
+		// read value
+		if line, err := reader.ReadString('\n'); err != nil {
+			println("Error: ", err.Error())
+		} else {
+			val, _ := strconv.ParseInt(strings.TrimSpace(line), 10, 64)
+			number = val
 		}
 
-		fmt.Println("Reader #", idx, "=> value from server", number)
-		logger.Printf("%d\t%d\n", idx, number)
+		// read sequence number
+		if line, err := reader.ReadString('\n'); err != nil {
+			println("Error: ", err.Error())
+		} else {
+			val, _ := strconv.ParseInt(strings.TrimSpace(line), 10, 64)
+			rSeq = val
+		}
+
+		writer.WriteString(strconv.FormatInt(int64(idx), 10) + "\n")
+		writer.Flush()
+
+		fmt.Println("Reader #", idx, "Access #", i, "=> value from server", number)
+		logger.Printf("%d\t&d\t%d\n", idx, rSeq, number)
 	}
 }
 
@@ -96,14 +116,39 @@ func writerClient(idx int) {
 	logFile, _ := os.Create("./logs/writers/writer" + strconv.Itoa(idx) + ".log")
 	logger := log.New(logFile, "", log.Ltime)
 
+	reader := bufio.NewReader(conn)
+	writer := bufio.NewWriter(conn)
+
+	var wSeq int64
+
 	for i := 0; i < cNumAccess; i++ {
-		numToWrite := rand.Intn(100)
-		conn.Write([]byte("write " + strconv.Itoa(numToWrite) + "\n"))
+	numToWrite := rand.Int63n(100)
 
-		message, _ := bufio.NewReader(conn).ReadString('\n')
-		fmt.Println("Writer #", idx, "writing", numToWrite)
-		fmt.Println("Message from server", message)
+	// request
+	writer.WriteString("write \n")
+	writer.Flush()
 
-		logger.Printf("%d\t%d\n", idx, numToWrite)
+
+	// FIXME: why this semi-works ?
+	time.Sleep(time.Millisecond * time.Duration(rand.Intn(10000)))
+
+	// send value
+	writer.WriteString(strconv.FormatInt(numToWrite, 10) + "\n")
+	writer.Flush()
+
+	time.Sleep(time.Millisecond * time.Duration(rand.Intn(10000)))
+
+	fmt.Println("Writer #", idx, "Access #", 0, "writing", numToWrite)
+
+	// read sequence number
+	if line, err := reader.ReadString('\n'); err != nil {
+		println("Error: ", err.Error())
+	} else {
+		val, _ := strconv.ParseInt(strings.TrimSpace(line), 10, 64)
+		wSeq = val
+		fmt.Println("Message from server", val)
+	}
+
+	logger.Printf("%d\t%d\t%d\n", idx, numToWrite, wSeq)
 	}
 }
