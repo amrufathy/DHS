@@ -1,16 +1,14 @@
 package main
 
 import (
-	"net"
-	"bufio"
 	"fmt"
 	"github.com/go-ini/ini"
-	"encoding/binary"
 	"strconv"
 	"math/rand"
 	"sync"
 	"os"
 	"log"
+	"net/rpc"
 )
 
 var (
@@ -45,12 +43,6 @@ func init() {
 }
 
 func main() {
-	fmt.Println("Requesting a connection from server...")
-
-	// send request to server for connection
-	conn, _ := net.Dial("tcp", sAddr)
-	defer conn.Close()
-
 	for i := 0; i < cNumReaders; i++ {
 		wg.Add(1)
 		go readerClient(i)
@@ -66,44 +58,46 @@ func main() {
 
 func readerClient(idx int) {
 	defer wg.Done()
-	conn, _ := net.Dial("tcp", sAddr)
+	conn, _ := rpc.Dial("tcp", sAddr)
 	defer conn.Close()
 
 	logFile, _ := os.Create("./logs/readers/reader" + strconv.Itoa(idx) + ".log")
 	logger := log.New(logFile, "", log.Ltime)
 
-	var number int64
-
 	for i := 0; i < cNumAccess; i++ {
-		// request
-		conn.Write([]byte("read\n"))
+		rv := new(ReadStruct)
 
-		err := binary.Read(conn, binary.BigEndian, &number)
-		if err != nil {
+		// read value and send idx
+		if err := conn.Call("Data.Read", idx, &rv); err != nil {
 			fmt.Println(err)
 		}
 
-		fmt.Println("Reader #", idx, "=> value from server", number)
-		logger.Printf("%d\t%d\n", idx, number)
+		fmt.Println("Reader #", idx, "Access #", i, "=> value from server", rv.Result)
+		logger.Printf("%d\t%d\t%d\n", idx, rv.Rseq, rv.Result)
 	}
 }
 
 func writerClient(idx int) {
 	defer wg.Done()
-	conn, _ := net.Dial("tcp", sAddr)
+	conn, _ := rpc.Dial("tcp", sAddr)
 	defer conn.Close()
 
 	logFile, _ := os.Create("./logs/writers/writer" + strconv.Itoa(idx) + ".log")
 	logger := log.New(logFile, "", log.Ltime)
 
+	var wSeq int64
+
 	for i := 0; i < cNumAccess; i++ {
-		numToWrite := rand.Intn(100)
-		conn.Write([]byte("write " + strconv.Itoa(numToWrite) + "\n"))
+		numToWrite := rand.Int63n(100)
+		ws := WriteStruct{NewVal: numToWrite, Widx: idx}
 
-		message, _ := bufio.NewReader(conn).ReadString('\n')
-		fmt.Println("Writer #", idx, "writing", numToWrite)
-		fmt.Println("Message from server", message)
+		// send new value and get wSeq
+		if err := conn.Call("Data.Write", ws, &wSeq); err != nil {
+			fmt.Println(err)
+		}
 
-		logger.Printf("%d\t%d\n", idx, numToWrite)
+		fmt.Println("Writer #", idx, "Access #", i, "=> writing", numToWrite)
+
+		logger.Printf("%d\t%d\t%d\n", idx, numToWrite, wSeq)
 	}
 }
